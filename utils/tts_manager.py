@@ -31,8 +31,7 @@ class TextToSpeech:
         if response.status_code == 200:
             return response.content
         else:
-            print("Error:", response.status_code, response.text)
-
+            return f"Error:- {response.status_code} \n {response.text}"
 
     @staticmethod
     def render_audio_ui(audio_bytes: bytes):
