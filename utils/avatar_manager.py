@@ -16,13 +16,14 @@ class AvatarManager:
         :param image_file:
         :return:
         """
-        url = "https://upload.heygen.com/v1/talking_photo"
         headers = {
             "x-api-key": self.API_KEY,
             "Content-Type": image_file.type
         }
 
-        response = requests.post(url, headers=headers, data=image_file.getvalue())
+        print(headers)
+
+        response = requests.post("https://upload.heygen.com/v1/talking_photo", headers=headers, data=image_file.getvalue())
 
         if response.status_code == 200:
             print("Uploaded image id :-", response.json().get("data", {}).get("talking_photo_id"))
@@ -37,12 +38,11 @@ class AvatarManager:
         :return:
         """
 
-        url = "https://api.heygen.com/v2/voices"
-
         headers = {
             "x-api-key": self.API_KEY
         }
-        response = requests.get(url, headers=headers)
+
+        response = requests.get("https://api.heygen.com/v2/voices", headers=headers)
 
         if response.status_code == 200:
             json_data = response.json()
@@ -75,8 +75,6 @@ class AvatarManager:
         :return: video_id
         """
 
-        url = "https://api.heygen.com/v2/video/generate"
-
         headers = {
             "x-api-key": self.API_KEY,
             "Content-Type": "application/json"
@@ -100,7 +98,7 @@ class AvatarManager:
                 "height": 1280
             }
         }
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post("https://api.heygen.com/v2/video/generate", headers=headers, json=payload)
         if response.status_code == 200:
             return response.json().get("data", {}).get("video_id")
         else:
@@ -115,31 +113,44 @@ class AvatarManager:
         headers = {
             "x-api-key": self.API_KEY
         }
+        print(video_id)
+        print(headers)
         video_status_url = f"https://api.heygen.com/v1/video_status.get?video_id={video_id}"
-        for _ in range(60):  # Poll for up to 30 seconds
-            response = requests.get(video_status_url, headers=headers)
-            if response.status_code == 200:
-                data = response.json().get("data", {})
-                if data.get("status") == "completed":
-                    return data.get("video_url")
-                elif data.get("status") == "failed":
-                    return "Video generation failed."
+
+        max_retries = 15  # Poll for up to 60 seconds
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(video_status_url, headers=headers)
+
+                if response.status_code == 200:
+                    data = response.json().get("data", {})
+                    status = data.get("status")
+
+                    if status == "completed":
+                        return data.get("video_url")
+                    elif status == "failed":
+                        return "Video generation failed."
+                    else:
+                        # Still processing
+                        time.sleep(5)  # Wait before next poll
                 else:
-                    time.sleep(1)
-            else:
-                return f"Failed to retrieve video status: {response.text}"
-        return "Video generation is taking longer than expected."
+                    print(f"Unexpected response: {response.status_code} - {response.text}")
+                    time.sleep(2)
+            except requests.exceptions.RequestException as e:
+                print(f"Retry {attempt + 1}/{max_retries} - Connection error: {e}")
+                time.sleep(2)
+
+        return "Video generation is taking longer than expected. Please try again later."
 
     def get_avatar(self):
         """
         :return: list of avatars including default and your own avatar
         """
-        url = "https://api.heygen.com/v2/avatars"
 
         headers = {
             "accept": "application/json",
             "x-api-key": self.API_KEY
         }
 
-        response = requests.get(url, headers=headers)
+        response = requests.get("https://api.heygen.com/v2/avatars", headers=headers)
         return response.json().get("data", {})
